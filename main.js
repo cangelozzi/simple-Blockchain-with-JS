@@ -5,12 +5,20 @@ A BLOCKCHAIN is a continuously growing list of records, called blocks, which are
 
 const SHA256 = require("crypto-js/sha256");
 
+//! create a transaction with a sender, a receiver and an amount
+class Transaction {
+  constructor(fromAddress, toAddress, amount) {
+    this.fromAddress = fromAddress;
+    this.toAddress = toAddress;
+    this.amount = amount;
+  }
+}
+
 // ! Create a BLOCK with all the fields, and calculate the HASH based on the data passed.
 class Block {
-  constructor(index, timestamp, data, previousHash = "") {
-    this.index = index;
+  constructor(timestamp, transactions, previousHash = "") {
     this.timestamp = timestamp;
-    this.data = data;
+    this.transactions = transactions;
     this.previousHash = previousHash;
 
     this.hash = this.calculateHash();
@@ -44,26 +52,72 @@ class Block {
 class Blockchain {
   constructor() {
     this.chain = [this.createGenesisBlock()];
-    this.difficulty = 4;
+    this.difficulty = 3;
+
+    //! pending transaction waiting to be added to the chain, waiting the minning process
+    this.pendingTransactions = [];
+
+    //! reward for mining a new Block
+    this.miningReward = 100;
   }
 
   createGenesisBlock() {
-    return new Block(0, "15/06/2018", "Genesis Block", "0");
+    return new Block("15/06/2018", "Genesis Block", "0");
   }
 
   getLatestBlock() {
     return this.chain[this.chain.length - 1];
   }
 
-  addBlock(newBlock) {
-    //! Get last hash from previous block
-    newBlock.previousHash = this.getLatestBlock().hash;
+  // addBlock(newBlock) {
+  //   //! Get last hash from previous block
+  //   newBlock.previousHash = this.getLatestBlock().hash;
 
-    //! Create the new hash for this block, adding proof of work/mining
-    newBlock.mineBlock(this.difficulty);
+  //   //! Create the new hash for this block, adding proof of work/mining
+  //   newBlock.mineBlock(this.difficulty);
 
-    //! Push Block to the chain
-    this.chain.push(newBlock);
+  //   //! Push Block to the chain
+  //   this.chain.push(newBlock);
+  // }
+
+  minePendingTransactions(miningRewardAddress) {
+    let block = new Block(Date.now(), this.pendingTransactions);
+    block.mineBlock(this.difficulty);
+
+    console.log("Block successfully mined!");
+    this.chain.push(block);
+
+    this.pendingTransactions = [
+      new Transaction(null, miningRewardAddress, this.miningReward)
+    ];
+  }
+
+  createTransaction(transaction) {
+    this.pendingTransactions.push(transaction);
+  }
+
+  getBalanceOfAddress(address) {
+    let balance = 0;
+
+    // loop through all the transactions
+    for(const block of this.chain) {
+      for(const trans of block.transactions) {
+
+        // from where the transaction starts, the balance decreases
+        if(trans.fromAddress === address) {
+          balance -= trans.amount;
+        }
+
+        // who receives the transactions, the balance increases
+        if (trans.toAddress === address) {
+          balance += trans.amount;
+        }
+
+      }
+    }
+
+    return balance;
+
   }
 
   //! Check if chain is Valid, starting from 1 since 0 is the Genesis
@@ -86,8 +140,28 @@ class Blockchain {
 }
 
 let testCoin = new Blockchain();
-testCoin.addBlock(new Block(1, '19/06/2018', {amount: 7}));
-testCoin.addBlock(new Block(2, '06/08/2018', {amount: 4}));
+
+//! create Transactions, that will be in the pendingTransactions status
+testCoin.createTransaction(new Transaction("address1", "address2", 100));
+testCoin.createTransaction(new Transaction("address2", "address1", 50));
+
+// First Transaction
+console.log('\n Starting the miner ...');
+testCoin.minePendingTransactions('camillo-address'); // where to send reward for mining
+
+console.log('\nBalance of camillo is', testCoin.getBalanceOfAddress('camillo-address'));
+
+// Second Transaction from Pending including Reward
+console.log('\n Starting the miner again ...');
+testCoin.minePendingTransactions('camillo-address'); // where to send reward for mining
+
+console.log('\nNEW Balance of camillo is', testCoin.getBalanceOfAddress('camillo-address'));
+
+// old tests ================================================================
+
+// TESTING
+// testCoin.addBlock(new Block(1, '19/06/2018', {amount: 7}));
+// testCoin.addBlock(new Block(2, '06/08/2018', {amount: 4}));
 
 //! Test if the Blockchain is Valid ---> it should be TRUE
 //console.log('is Blockchain valid? ' + testCoin.isChainvalid());
@@ -102,5 +176,5 @@ testCoin.addBlock(new Block(2, '06/08/2018', {amount: 4}));
 
 //! Test the Blockchain and the linked hash, 
 //! Test if the Blockchain with Proof of Work / Mining, adding zeros at the beginning
-console.log(JSON.stringify(testCoin, null, 4)) // 4 spaces formatting
+// console.log(JSON.stringify(testCoin, null, 4)) // 4 spaces formatting
 
